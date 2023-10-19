@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
+	"go-wsq"
 	"image/jpeg"
 	"log"
 	"os"
-	"wsq"
 )
 
 // simple decode->encode->decode then convert to jpeg test
