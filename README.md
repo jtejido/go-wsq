@@ -12,7 +12,7 @@ Encode(w io.Writer, img image.Image, o *Options) error
 The options are the following:
 ```
 type Options struct {
-	Bitrate  float32
+	Bitrate  float32 // uses a default of .75 for anything <= 0
 	Comments []string
 	Metadata map[string]string
 }
