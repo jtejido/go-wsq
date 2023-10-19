@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"go-wsq"
 	"image/jpeg"
 	"log"
 	"os"
+
+	"github.com/jtejido/go-wsq"
 )
 
 // simple decode->encode->decode then convert to jpeg test
