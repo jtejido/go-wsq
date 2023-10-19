@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"log"
 	"math"
 	"net/url"
 	"strings"
@@ -86,10 +87,10 @@ func encode(w io.Writer, m *image.Gray, o *Options) (err error) {
 	qdata = quantize(&e, qsize, fdata, b.Dx(), b.Dy())
 
 	/* Compute quantized WSQ subband block sizes */
-	quant_block_sizes(&e, qsize1, qsize2, qsize3)
+	quantBlockSizes(&e, qsize1, qsize2, qsize3)
 
 	if qsize.value != qsize1.value+qsize2.value+qsize3.value {
-		return fmt.Errorf("ERROR : wsq_encode_1 : problem w/quantization block sizes")
+		return fmt.Errorf("ERROR: encode: problem w/quantization block sizes")
 	}
 
 	/* Add a Start Of Image (SOI) marker to the WSQ buffer. */
@@ -120,7 +121,7 @@ func encode(w io.Writer, m *image.Gray, o *Options) (err error) {
 
 	/* Compute Huffman table for Block 1. */
 
-	hufftable, err = gen_hufftable_wsq(&e, huffbits, huffvalues, qdata, 0, []int{qsize1.value})
+	hufftable, err = genHufftableWSQ(&e, huffbits, huffvalues, qdata, 0, []int{qsize1.value})
 	if err != nil {
 		return
 	}
@@ -136,14 +137,14 @@ func encode(w io.Writer, m *image.Gray, o *Options) (err error) {
 		return
 	}
 	/* Compress Block 1 data. */
-	err = compress_block(&e, qdata, 0, qsize1.value, max_huffcoeff, max_huffzrun, hufftable)
+	err = compressBlock(&e, qdata, 0, qsize1.value, max_huffcoeff, max_huffzrun, hufftable)
 	if err != nil {
 		return
 	}
 	/* ENCODE Block 2 */
 
 	/* Compute  Huffman table for Blocks 2 & 3. */
-	hufftable, err = gen_hufftable_wsq(&e, huffbits, huffvalues, qdata, qsize1.value, []int{qsize2.value, qsize3.value})
+	hufftable, err = genHufftableWSQ(&e, huffbits, huffvalues, qdata, qsize1.value, []int{qsize2.value, qsize3.value})
 	if err != nil {
 		return
 	}
@@ -158,7 +159,7 @@ func encode(w io.Writer, m *image.Gray, o *Options) (err error) {
 		return
 	}
 	/* Compress Block 2 data. */
-	err = compress_block(&e, qdata, qsize1.value, qsize2.value, max_huffcoeff, max_huffzrun, hufftable)
+	err = compressBlock(&e, qdata, qsize1.value, qsize2.value, max_huffcoeff, max_huffzrun, hufftable)
 	if err != nil {
 		return
 	}
@@ -170,7 +171,7 @@ func encode(w io.Writer, m *image.Gray, o *Options) (err error) {
 		return
 	}
 	/* Compress Block 3 data. */
-	err = compress_block(&e, qdata, qsize1.value+qsize2.value, qsize3.value, max_huffcoeff, max_huffzrun, hufftable)
+	err = compressBlock(&e, qdata, qsize1.value+qsize2.value, qsize3.value, max_huffcoeff, max_huffzrun, hufftable)
 	if err != nil {
 		return
 	}
@@ -221,13 +222,13 @@ func getLets(newdata, /* image pointers for creating subband splits */
 	inv int, /* spectral inversion? */
 ) error {
 	if newdata == nil {
-		return fmt.Errorf("newdata == nil")
+		return fmt.Errorf("ERROR: getLets: newdata == nil")
 	}
 	if olddata == nil {
-		return fmt.Errorf("olddata == nil")
+		return fmt.Errorf("ERROR: getLets: olddata == nil")
 	}
 	if lo == nil {
-		return fmt.Errorf("lo == nil")
+		return fmt.Errorf("ERROR: getLets: lo == nil")
 	}
 
 	var lopass, hipass int /* pointers of where to put lopass
@@ -739,13 +740,7 @@ func quantize(encoder *encoder, qsize *reference[int], fip []float32, width, hei
 	return sip
 }
 
-func fillWithZeros(slice []int, start, end int) {
-	for i := start; i < end; i++ {
-		slice[i] = 0
-	}
-}
-
-func quant_block_sizes(encoder *encoder, oqsize1, oqsize2, oqsize3 *reference[int]) {
+func quantBlockSizes(encoder *encoder, oqsize1, oqsize2, oqsize3 *reference[int]) {
 	var qsize1, qsize2, qsize3 int
 	var node int
 
@@ -780,7 +775,7 @@ func quant_block_sizes(encoder *encoder, oqsize1, oqsize2, oqsize3 *reference[in
 	oqsize3.value = qsize3
 }
 
-func gen_hufftable_wsq(encoder *encoder, ohuffbits, ohuffvalues *reference[[]int], sip []int, offset int, block_sizes []int) (hufftable2 []huffCode, err error) {
+func genHufftableWSQ(encoder *encoder, ohuffbits, ohuffvalues *reference[[]int], sip []int, offset int, block_sizes []int) (hufftable2 []huffCode, err error) {
 	var codesize []int        /* code sizes to use */
 	var tempSize int          /* last huffvalue */
 	var huffbits []int        /* huffbits values */
@@ -789,13 +784,13 @@ func gen_hufftable_wsq(encoder *encoder, ohuffbits, ohuffvalues *reference[[]int
 	var huffcounts2 []int     /* counts for each huffman category */
 	var hufftable1 []huffCode /* hufftables */
 
-	huffcounts, err = count_block(max_huffcounts_wsq, sip, offset, block_sizes[0], max_huffcoeff, max_huffzrun)
+	huffcounts, err = countBlock(max_huffcounts_wsq, sip, offset, block_sizes[0], max_huffcoeff, max_huffzrun)
 	if err != nil {
 		return
 	}
 
 	for i := 1; i < len(block_sizes); i++ {
-		huffcounts2, err = count_block(max_huffcounts_wsq, sip, offset+block_sizes[i-1], block_sizes[i], max_huffcoeff, max_huffzrun)
+		huffcounts2, err = countBlock(max_huffcounts_wsq, sip, offset+block_sizes[i-1], block_sizes[i], max_huffcoeff, max_huffzrun)
 		if err != nil {
 			return
 		}
@@ -805,35 +800,33 @@ func gen_hufftable_wsq(encoder *encoder, ohuffbits, ohuffvalues *reference[[]int
 		}
 	}
 
-	codesize = find_huff_sizes(huffcounts, max_huffcounts_wsq)
+	codesize = findHuffSizes(huffcounts, max_huffcounts_wsq)
 
 	/* tells if codesize is greater than MAX_HUFFBITS */
 	adjust := &reference[bool]{false}
 
-	huffbits = find_num_huff_sizes(adjust, codesize, max_huffcounts_wsq)
+	huffbits = findNumHuffSizes(adjust, codesize, max_huffcounts_wsq)
 
 	if adjust.value {
-		if err := sort_huffbits(huffbits); err != nil {
+		if err := sortHuffbits(huffbits); err != nil {
 			return nil, err
 		}
 	}
 
-	huffvalues = sort_code_sizes(codesize, max_huffcounts_wsq)
+	huffvalues = sortCodeSizes(codesize, max_huffcounts_wsq)
 
 	hufftable1, tempSize = buildHuffsizes(huffbits, max_huffcounts_wsq)
 	buildHuffcodes(hufftable1)
-	if err := check_huffcodes_wsq(hufftable1, tempSize); err != nil {
-		return nil, err
-	}
+	checkHuffcodesWSQ(hufftable1, tempSize)
 
-	hufftable2 = build_huffcode_table(hufftable1, tempSize, huffvalues, max_huffcounts_wsq)
+	hufftable2 = buildHuffcodeTable(hufftable1, tempSize, huffvalues, max_huffcounts_wsq)
 
 	ohuffbits.value = huffbits
 	ohuffvalues.value = huffvalues
 	return hufftable2, nil
 }
 
-func count_block(
+func countBlock(
 	// int **ocounts,     /* output count for each huffman catetory */
 	max_huffcounts int, /* maximum number of counts */
 	sip []int, /* quantized data */
@@ -850,10 +843,10 @@ func count_block(
 	var cnt int /* pixel counter */
 
 	if MaxCoeff < 0 || MaxCoeff > 0xffff {
-		return nil, fmt.Errorf("ERROR : compress_block : MaxCoeff out of range.")
+		return nil, fmt.Errorf("ERROR : countBlock : MaxCoeff out of range.")
 	}
 	if MaxZRun < 0 || MaxZRun > 0xffff {
-		return nil, fmt.Errorf("ERROR : compress_block : MaxZRun out of range.")
+		return nil, fmt.Errorf("ERROR : countBlock : MaxZRun out of range.")
 	}
 	/* Ininitalize vector of counts to 0. */
 	counts = make([]int, max_huffcounts+1)
@@ -902,7 +895,7 @@ func count_block(
 			} else if rcnt <= 0xFFFF {
 				counts[106]++ /* 16bit zrun esc */
 			} else {
-				return nil, fmt.Errorf("ERROR: count_block : Zrun to long in count block.")
+				return nil, fmt.Errorf("ERROR: countBlock : Zrun to long in count block.")
 			}
 
 			if pix != 0 {
@@ -937,14 +930,14 @@ func count_block(
 		} else if rcnt <= 0xFFFF {
 			counts[106]++ /* 16bit zrun esc */
 		} else {
-			return nil, fmt.Errorf("ERROR: count_block : Zrun to long in count block.")
+			return nil, fmt.Errorf("ERROR: countBlock : Zrun to long in count block.")
 		}
 	}
 
 	return counts, nil
 }
 
-func find_num_huff_sizes(adjust *reference[bool], codesize []int, max_huffcounts int) []int {
+func findNumHuffSizes(adjust *reference[bool], codesize []int, max_huffcounts int) []int {
 	adjust.value = false
 
 	/* Allocate 2X desired number of bits due to possible codesize. */
@@ -961,7 +954,7 @@ func find_num_huff_sizes(adjust *reference[bool], codesize []int, max_huffcounts
 	return bits
 }
 
-func sort_code_sizes(codesize []int, max_huffcounts int) []int {
+func sortCodeSizes(codesize []int, max_huffcounts int) []int {
 	/* defines order of huffman codelengths in relation to the code sizes */
 	values := make([]int, max_huffcounts+1)
 	var i2 int
@@ -976,7 +969,7 @@ func sort_code_sizes(codesize []int, max_huffcounts int) []int {
 	return values
 }
 
-func check_huffcodes_wsq(hufftable []huffCode, last_size int) error {
+func checkHuffcodesWSQ(hufftable []huffCode, last_size int) {
 	var all_ones bool
 
 	for i := 0; i < last_size; i++ {
@@ -985,14 +978,13 @@ func check_huffcodes_wsq(hufftable []huffCode, last_size int) error {
 			all_ones = (all_ones && (((hufftable[i].code >> k) & 0x0001) != 0))
 		}
 		if all_ones {
-			return fmt.Errorf("WARNING: A code in the hufftable contains an all 1's code. This image may still be decodable. It is not compliant with the WSQ specification.")
+			log.Println("WARNING: checkHuffcodesWSQ: A code in the hufftable contains an all 1's code. This image may still be decodable. It is not compliant with the WSQ specification.")
 		}
 	}
 
-	return nil
 }
 
-func build_huffcode_table(in_huffcode_table []huffCode, last_size int, values []int, max_huffcounts int) []huffCode {
+func buildHuffcodeTable(in_huffcode_table []huffCode, last_size int, values []int, max_huffcounts int) []huffCode {
 	new_huffcode_table := make([]huffCode, max_huffcounts+1)
 	for i := 0; i < len(new_huffcode_table); i++ {
 		new_huffcode_table[i] = huffCode{}
@@ -1006,7 +998,7 @@ func build_huffcode_table(in_huffcode_table []huffCode, last_size int, values []
 	return new_huffcode_table
 }
 
-func sort_huffbits(bits []int) error {
+func sortHuffbits(bits []int) error {
 	var i, j int
 	var l1, l2, l3 int
 
@@ -1046,14 +1038,14 @@ func sort_huffbits(bits []int) error {
 
 	for i = max_huffbits; i < l3; i++ {
 		if bits[i] > 0 {
-			return fmt.Errorf("ERROR : sort_huffbits : Code length is greater than 16.")
+			return fmt.Errorf("ERROR: sortHuffbits: Code length is greater than 16.")
 		}
 	}
 
 	return nil
 }
 
-func find_huff_sizes(freq []int, max_huffcounts int) []int {
+func findHuffSizes(freq []int, max_huffcounts int) []int {
 	var value1 int
 	/* smallest and next smallest frequency */
 	var value2 int /* of difference occurrence in the largest difference category */
@@ -1070,7 +1062,7 @@ func find_huff_sizes(freq []int, max_huffcounts int) []int {
 
 	for {
 
-		values := find_least_freq(freq, max_huffcounts)
+		values := findLeastFreq(freq, max_huffcounts)
 		value1 = values[0]
 		value2 = values[1]
 
@@ -1098,7 +1090,7 @@ func find_huff_sizes(freq []int, max_huffcounts int) []int {
 	return codesize
 }
 
-func find_least_freq(freq []int, max_huffcounts int) []int {
+func findLeastFreq(freq []int, max_huffcounts int) []int {
 	var code_temp int           /*store code*/
 	var value_temp int          /*store size*/
 	code2 := int(^uint(0) >> 1) /*next smallest frequency in largest diff category*/
@@ -1143,7 +1135,7 @@ func find_least_freq(freq []int, max_huffcounts int) []int {
 	return []int{value1, value2}
 }
 
-func compress_block(encoder *encoder,
+func compressBlock(encoder *encoder,
 	sip []int, /* quantized image */
 	offset,
 	length,
@@ -1158,10 +1150,10 @@ func compress_block(encoder *encoder,
 	var cnt int /* pixel counter */
 
 	if MaxCoeff < 0 || MaxCoeff > 0xffff {
-		return fmt.Errorf("ERROR : compress_block : MaxCoeff out of range.")
+		return fmt.Errorf("ERROR: compressBlock: MaxCoeff out of range.")
 	}
 	if MaxZRun < 0 || MaxZRun > 0xffff {
-		return fmt.Errorf("ERROR : compress_block : MaxZRun out of range.")
+		return fmt.Errorf("ERROR: compressBlock: MaxZRun out of range.")
 	}
 	LoMaxCoeff = 1 - MaxCoeff
 
@@ -1184,42 +1176,42 @@ func compress_block(encoder *encoder,
 			if pix > MaxCoeff {
 				if pix > 255 {
 					/* 16bit pos esc */
-					if err := write_bits(encoder, codes[103].size, codes[103].code, outbit, bits, bytes); err != nil {
+					if err := writeBits(encoder, codes[103].size, codes[103].code, outbit, bits, bytes); err != nil {
 						return err
 					}
-					if err := write_bits(encoder, 16, pix, outbit, bits, bytes); err != nil {
+					if err := writeBits(encoder, 16, pix, outbit, bits, bytes); err != nil {
 						return err
 					}
 				} else {
 					/* 8bit pos esc */
-					if err := write_bits(encoder, codes[101].size, codes[101].code, outbit, bits, bytes); err != nil {
+					if err := writeBits(encoder, codes[101].size, codes[101].code, outbit, bits, bytes); err != nil {
 						return err
 					}
-					if err := write_bits(encoder, 8, pix, outbit, bits, bytes); err != nil {
+					if err := writeBits(encoder, 8, pix, outbit, bits, bytes); err != nil {
 						return err
 					}
 				}
 			} else if pix < LoMaxCoeff {
 				if pix < -255 {
 					/* 16bit neg esc */
-					if err := write_bits(encoder, codes[104].size, codes[104].code, outbit, bits, bytes); err != nil {
+					if err := writeBits(encoder, codes[104].size, codes[104].code, outbit, bits, bytes); err != nil {
 						return err
 					}
-					if err := write_bits(encoder, 16, -(pix), outbit, bits, bytes); err != nil {
+					if err := writeBits(encoder, 16, -(pix), outbit, bits, bytes); err != nil {
 						return err
 					}
 				} else {
 					/* 8bit neg esc */
-					if err := write_bits(encoder, codes[102].size, codes[102].code, outbit, bits, bytes); err != nil {
+					if err := writeBits(encoder, codes[102].size, codes[102].code, outbit, bits, bytes); err != nil {
 						return err
 					}
-					if err := write_bits(encoder, 8, -(pix), outbit, bits, bytes); err != nil {
+					if err := writeBits(encoder, 8, -(pix), outbit, bits, bytes); err != nil {
 						return err
 					}
 				}
 			} else {
 				/* within table */
-				if err := write_bits(encoder, codes[pix+180].size, codes[pix+180].code, outbit, bits, bytes); err != nil {
+				if err := writeBits(encoder, codes[pix+180].size, codes[pix+180].code, outbit, bits, bytes); err != nil {
 					return err
 				}
 			}
@@ -1232,23 +1224,23 @@ func compress_block(encoder *encoder,
 			}
 			if rcnt <= MaxZRun {
 				/* log zero run length */
-				if err := write_bits(encoder, codes[rcnt].size, codes[rcnt].code, outbit, bits, bytes); err != nil {
+				if err := writeBits(encoder, codes[rcnt].size, codes[rcnt].code, outbit, bits, bytes); err != nil {
 					return err
 				}
 			} else if rcnt <= 0xFF {
 				/* 8bit zrun esc */
-				if err := write_bits(encoder, codes[105].size, codes[105].code, outbit, bits, bytes); err != nil {
+				if err := writeBits(encoder, codes[105].size, codes[105].code, outbit, bits, bytes); err != nil {
 					return err
 				}
-				if err := write_bits(encoder, 8, rcnt, outbit, bits, bytes); err != nil {
+				if err := writeBits(encoder, 8, rcnt, outbit, bits, bytes); err != nil {
 					return err
 				}
 			} else if rcnt <= 0xFFFF {
 				/* 16bit zrun esc */
-				if err := write_bits(encoder, codes[106].size, codes[106].code, outbit, bits, bytes); err != nil {
+				if err := writeBits(encoder, codes[106].size, codes[106].code, outbit, bits, bytes); err != nil {
 					return err
 				}
-				if err := write_bits(encoder, 16, rcnt, outbit, bits, bytes); err != nil {
+				if err := writeBits(encoder, 16, rcnt, outbit, bits, bytes); err != nil {
 					return err
 				}
 			} else {
@@ -1260,42 +1252,42 @@ func compress_block(encoder *encoder,
 					/** log current pix **/
 					if pix > 255 {
 						/* 16bit pos esc */
-						if err := write_bits(encoder, codes[103].size, codes[103].code, outbit, bits, bytes); err != nil {
+						if err := writeBits(encoder, codes[103].size, codes[103].code, outbit, bits, bytes); err != nil {
 							return err
 						}
-						if err := write_bits(encoder, 16, pix, outbit, bits, bytes); err != nil {
+						if err := writeBits(encoder, 16, pix, outbit, bits, bytes); err != nil {
 							return err
 						}
 					} else {
 						/* 8bit pos esc */
-						if err := write_bits(encoder, codes[101].size, codes[101].code, outbit, bits, bytes); err != nil {
+						if err := writeBits(encoder, codes[101].size, codes[101].code, outbit, bits, bytes); err != nil {
 							return err
 						}
-						if err := write_bits(encoder, 8, pix, outbit, bits, bytes); err != nil {
+						if err := writeBits(encoder, 8, pix, outbit, bits, bytes); err != nil {
 							return err
 						}
 					}
 				} else if pix < LoMaxCoeff {
 					if pix < -255 {
 						/* 16bit neg esc */
-						if err := write_bits(encoder, codes[104].size, codes[104].code, outbit, bits, bytes); err != nil {
+						if err := writeBits(encoder, codes[104].size, codes[104].code, outbit, bits, bytes); err != nil {
 							return err
 						}
-						if err := write_bits(encoder, 16, -pix, outbit, bits, bytes); err != nil {
+						if err := writeBits(encoder, 16, -pix, outbit, bits, bytes); err != nil {
 							return err
 						}
 					} else {
 						/* 8bit neg esc */
-						if err := write_bits(encoder, codes[102].size, codes[102].code, outbit, bits, bytes); err != nil {
+						if err := writeBits(encoder, codes[102].size, codes[102].code, outbit, bits, bytes); err != nil {
 							return err
 						}
-						if err := write_bits(encoder, 8, -pix, outbit, bits, bytes); err != nil {
+						if err := writeBits(encoder, 8, -pix, outbit, bits, bytes); err != nil {
 							return err
 						}
 					}
 				} else {
 					/* within table */
-					if err := write_bits(encoder, codes[pix+180].size, codes[pix+180].code, outbit, bits, bytes); err != nil {
+					if err := writeBits(encoder, codes[pix+180].size, codes[pix+180].code, outbit, bits, bytes); err != nil {
 						return err
 					}
 				}
@@ -1309,32 +1301,32 @@ func compress_block(encoder *encoder,
 	}
 	if state == run_code {
 		if rcnt <= MaxZRun {
-			if err := write_bits(encoder, codes[rcnt].size, codes[rcnt].code, outbit, bits, bytes); err != nil {
+			if err := writeBits(encoder, codes[rcnt].size, codes[rcnt].code, outbit, bits, bytes); err != nil {
 				return err
 			}
 		} else if rcnt <= 0xFF {
-			if err := write_bits(encoder, codes[105].size, codes[105].code, outbit, bits, bytes); err != nil {
+			if err := writeBits(encoder, codes[105].size, codes[105].code, outbit, bits, bytes); err != nil {
 				return err
 			}
-			if err := write_bits(encoder, 8, rcnt, outbit, bits, bytes); err != nil {
+			if err := writeBits(encoder, 8, rcnt, outbit, bits, bytes); err != nil {
 				return err
 			}
 		} else if rcnt <= 0xFFFF {
-			if err := write_bits(encoder, codes[106].size, codes[106].code, outbit, bits, bytes); err != nil {
+			if err := writeBits(encoder, codes[106].size, codes[106].code, outbit, bits, bytes); err != nil {
 				return err
 			}
-			if err := write_bits(encoder, 16, rcnt, outbit, bits, bytes); err != nil {
+			if err := writeBits(encoder, 16, rcnt, outbit, bits, bytes); err != nil {
 				return err
 			}
 		} else {
-			return fmt.Errorf("ERROR : compress_block : zrun2 too large.")
+			return fmt.Errorf("ERROR: compressBlock: zrun2 too large.")
 		}
 	}
 
-	return flush_bits(encoder, outbit, bits, bytes)
+	return flushBits(encoder, outbit, bits, bytes)
 }
 
-func write_bits(
+func writeBits(
 	encoder *encoder,
 	size, /* numbers bits of code to write into buffer   */
 	code int, /* info to write into buffer                   */
@@ -1367,7 +1359,7 @@ func write_bits(
 	return nil
 }
 
-func flush_bits(
+func flushBits(
 	encoder *encoder, /* output data buffer */
 	outbit, /* current bit location in out buffer byte */
 	bits, /* byte to write to output buffer */

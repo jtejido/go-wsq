@@ -127,10 +127,10 @@ func (e *encoder) putCTransformTable(losz, hisz int) error {
 
 	/* FIXME how big can hisz,losz get */
 	if losz < 0 || losz > int(^uint(0)>>1)/2 {
-		return fmt.Errorf("Writing transform table: losz out of range")
+		return fmt.Errorf("ERROR: putCTransformTable: Writing transform table: losz out of range")
 	}
 	if hisz < 0 || hisz > int(^uint(0)>>1)/2 {
-		return fmt.Errorf("Writing transform table: hisz out of range")
+		return fmt.Errorf("ERROR: putCTransformTable: Writing transform table: hisz out of range")
 	}
 	if err := e.writeShort(dtt_wsq); err != nil {
 		return err
@@ -171,7 +171,7 @@ func (e *encoder) putCTransformTable(losz, hisz int) error {
 			int_dat = int64(math.Round(float64(dbl_tmp / 10.0)))
 		} else {
 			dbl_tmp = e.tableDTT.lofilt[coef]
-			return fmt.Errorf("ERROR: putc_transform_table : lofilt[%d] to high at %f", coef, dbl_tmp)
+			return fmt.Errorf("ERROR: putCTransformTable: lofilt[%d] to high at %f", coef, dbl_tmp)
 		}
 
 		if err := e.writeByte(sign); err != nil {
@@ -205,7 +205,7 @@ func (e *encoder) putCTransformTable(losz, hisz int) error {
 			int_dat = int64(math.Round(float64(dbl_tmp / 10.0)))
 		} else {
 			dbl_tmp = e.tableDTT.hifilt[coef]
-			return fmt.Errorf("ERROR: putc_transform_table : hifilt[%d] to high at %f", coef, dbl_tmp)
+			return fmt.Errorf("ERROR: putCTransformTable: hifilt[%d] to high at %f", coef, dbl_tmp)
 		}
 		if err := e.writeByte(sign); err != nil {
 			return err
@@ -257,7 +257,7 @@ func (e *encoder) putCQuantizationTable() error {
 					shrt_dat = int(math.Round(float64(flt_tmp) / 10.0))
 				} else {
 					flt_tmp = e.quant_vals.qbss[sub]
-					return fmt.Errorf("ERROR : putc_quantization_table : Q[%d] to high at %f", sub, flt_tmp)
+					return fmt.Errorf("ERROR: putc_quantization_table: Q[%d] to high at %f", sub, flt_tmp)
 				}
 
 				flt_tmp = e.quant_vals.qzbs[sub]
@@ -272,7 +272,7 @@ func (e *encoder) putCQuantizationTable() error {
 				} else {
 					flt_tmp = e.quant_vals.qzbs[sub]
 
-					return fmt.Errorf("ERROR : putc_quantization_table : Z[%d] to high at %f", sub, flt_tmp)
+					return fmt.Errorf("ERROR: putc_quantization_table: Z[%d] to high at %f", sub, flt_tmp)
 				}
 			} else {
 				scale_ex = 0

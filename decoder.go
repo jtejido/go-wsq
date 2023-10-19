@@ -50,7 +50,7 @@ func (d *decoder) getCTableWSQ(marker int) (err error) {
 		}
 		return nil
 	default:
-		return fmt.Errorf("ERROR: getCTableWSQ : Invalid table defined : %d", marker)
+		return fmt.Errorf("ERROR: getCTableWSQ: Invalid table defined : %d", marker)
 	}
 }
 
@@ -318,7 +318,7 @@ func (d *decoder) getCHuffmanTableWSQ() error {
 		/* If table is already defined ... */
 		tableId = huffmantable.tableId
 		if d.tableDHT[tableId].tabdef != 0 {
-			return fmt.Errorf("ERROR : getCHuffmanTableWSQ : huffman table already defined.")
+			return fmt.Errorf("ERROR: getCHuffmanTableWSQ: huffman table already defined.")
 		}
 
 		/* Store table into global structure list. */
@@ -348,7 +348,7 @@ func (d *decoder) getCHuffmanTable(maxHuffcounts, bytesLeft int, readTableLen bo
 
 	/* If no bytes left ... */
 	if bytesLeft <= 0 {
-		return nil, fmt.Errorf("ERROR : getCHuffmanTable : no huffman table bytes remaining")
+		return nil, fmt.Errorf("ERROR: getCHuffmanTable: no huffman table bytes remaining")
 	}
 
 	/* Table ID */
@@ -371,7 +371,7 @@ func (d *decoder) getCHuffmanTable(maxHuffcounts, bytesLeft int, readTableLen bo
 	htable.bytesLeft -= max_huffbits
 
 	if numHufvals > maxHuffcounts+1 {
-		return nil, fmt.Errorf("ERROR : getCHuffmanTable : numHufvals is larger than MAX_HUFFCOUNTS")
+		return nil, fmt.Errorf("ERROR: getCHuffmanTable: numHufvals is larger than MAX_HUFFCOUNTS")
 	}
 
 	/* Could allocate only the amount needed ... then we wouldn't */
@@ -399,36 +399,36 @@ func (d *decoder) getCMarkerWSQ(tt int) (int, error) {
 	switch tt {
 	case soi_wsq:
 		if marker != soi_wsq {
-			return 0, fmt.Errorf("ERROR : getCMarkerWSQ : No SOI marker : %d", marker)
+			return 0, fmt.Errorf("ERROR: getCMarkerWSQ: No SOI marker : %d", marker)
 		}
 
 		return marker, nil
 
 	case tbls_n_sof:
 		if marker != dtt_wsq && marker != dqt_wsq && marker != dht_wsq && marker != sof_wsq && marker != com_wsq && marker != eoi_wsq {
-			return 0, fmt.Errorf("ERROR : getc_marker_wsq : No SOF, Table, or comment markers : %d", marker)
+			return 0, fmt.Errorf("ERROR: getCMarkerWSQ: No SOF, Table, or comment markers : %d", marker)
 		}
 
 		return marker, nil
 
 	case tbls_n_sob:
 		if marker != dtt_wsq && marker != dqt_wsq && marker != dht_wsq && marker != sob_wsq && marker != com_wsq && marker != eoi_wsq {
-			return 0, fmt.Errorf("ERROR : getc_marker_wsq : No SOB, Table, or comment markers :  %d", marker)
+			return 0, fmt.Errorf("ERROR: getCMarkerWSQ: No SOB, Table, or comment markers :  %d", marker)
 		}
 		return marker, nil
 	case any_wsq:
 		if (marker & 0xff00) != 0xff00 {
-			return 0, fmt.Errorf("ERROR : getc_marker_wsq : no marker found : %d", marker)
+			return 0, fmt.Errorf("ERROR: getCMarkerWSQ: no marker found : %d", marker)
 		}
 
 		/* Added by MDG on 03-07-05 */
 		if (marker < soi_wsq) || (marker > com_wsq) {
-			return 0, fmt.Errorf("ERROR : getc_marker_wsq : not a valid marker : %d", marker)
+			return 0, fmt.Errorf("ERROR: getCMarkerWSQ: not a valid marker : %d", marker)
 		}
 
 		return marker, nil
 	default:
-		return 0, fmt.Errorf("ERROR : getc_marker_wsq : Invalid marker : %d", marker)
+		return 0, fmt.Errorf("ERROR: getCMarkerWSQ: Invalid marker : %d", marker)
 	}
 }
 
@@ -451,7 +451,7 @@ func (d *decoder) getCNextbitsWSQ(marker, bitCount *reference[int], bitsReq int,
 				return 1, nil
 			}
 			if code2 != 0x00 {
-				return 0, fmt.Errorf("ERROR: getCNextbitsWSQ : No stuffed zeros.")
+				return 0, fmt.Errorf("ERROR: getCNextbitsWSQ: No stuffed zeros.")
 			}
 		}
 	}
